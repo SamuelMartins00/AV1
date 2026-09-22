@@ -1,0 +1,44 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Arquivos de ambiente
+.env
+.env.*
+!.env.example
+
+# Dados da aplicação
+data/
+
+# Credenciais e chaves
+*.key
+*.pem
+*.secret
+
+# Logs
+*.log
+logs/
+
+# Journal
+journal/
+*.journal
+
+# Testes
+coverage/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# TypeScript
+*.tsbuildinfo
