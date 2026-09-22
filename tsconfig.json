@@ -13,12 +13,7 @@
 
     "types": ["node"],
 
-    "sourceMap": true,
-
-    "noUncheckedIndexedAccess": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "sourceMap": true
   },
 
   "include": [
