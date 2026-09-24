@@ -39,23 +39,25 @@ export class RepositorioArquivo {
         nomeArquivo: string,
         entidade: any
     ): void {
-        const caminho = this.obterCaminhoSeguro(
-            nomeArquivo
-        );
+        const caminho =
+            this.obterCaminhoSeguro(nomeArquivo);
 
         const entidades =
             this.listarEntidades(nomeArquivo);
 
-        const id = entidade?.id;
+        const identificador =
+            this.obterIdentificador(entidade);
 
-        if (!id) {
+        if (!identificador) {
             throw new Error(
-                "A entidade precisa possuir um id."
+                "A entidade precisa possuir um identificador."
             );
         }
 
         const indice = entidades.findIndex(
-            (item) => item.id === id
+            (item) =>
+                this.obterIdentificador(item) ===
+                identificador
         );
 
         if (indice >= 0) {
@@ -93,7 +95,8 @@ export class RepositorioArquivo {
         return (
             entidades.find(
                 (entidade) =>
-                    entidade.id === id
+                    this.obterIdentificador(entidade) ===
+                    id
             ) ?? null
         );
     }
@@ -101,9 +104,8 @@ export class RepositorioArquivo {
     listarEntidades(
         nomeArquivo: string
     ): any[] {
-        const caminho = this.obterCaminhoSeguro(
-            nomeArquivo
-        );
+        const caminho =
+            this.obterCaminhoSeguro(nomeArquivo);
 
         if (!existsSync(caminho)) {
             return [];
@@ -156,9 +158,8 @@ export class RepositorioArquivo {
         nomeArquivo: string,
         id: string
     ): void {
-        const caminho = this.obterCaminhoSeguro(
-            nomeArquivo
-        );
+        const caminho =
+            this.obterCaminhoSeguro(nomeArquivo);
 
         if (!existsSync(caminho)) {
             return;
@@ -170,7 +171,8 @@ export class RepositorioArquivo {
         const entidadesRestantes =
             entidades.filter(
                 (entidade) =>
-                    entidade.id !== id
+                    this.obterIdentificador(entidade) !==
+                    id
             );
 
         if (
@@ -197,6 +199,28 @@ export class RepositorioArquivo {
             caminho,
             conteudoCriptografado
         );
+    }
+
+    private obterIdentificador(
+        entidade: any
+    ): string | null {
+        if (
+            entidade &&
+            typeof entidade.id === "string" &&
+            entidade.id.trim() !== ""
+        ) {
+            return entidade.id;
+        }
+
+        if (
+            entidade &&
+            typeof entidade.usuario === "string" &&
+            entidade.usuario.trim() !== ""
+        ) {
+            return entidade.usuario;
+        }
+
+        return null;
     }
 
     private garantirDiretorio(): void {
@@ -251,7 +275,8 @@ export class RepositorioArquivo {
         try {
             fd = openSync(
                 caminhoTemporario,
-                "w"
+                "w",
+                0o600
             );
 
             writeFileSync(
@@ -261,6 +286,7 @@ export class RepositorioArquivo {
             );
 
             fsyncSync(fd);
+
             closeSync(fd);
             fd = null;
 
@@ -273,7 +299,9 @@ export class RepositorioArquivo {
                 closeSync(fd);
             }
 
-            if (existsSync(caminhoTemporario)) {
+            if (
+                existsSync(caminhoTemporario)
+            ) {
                 unlinkSync(caminhoTemporario);
             }
 
