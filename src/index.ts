@@ -1,7 +1,16 @@
 import { existsSync } from "fs";
 
-import { CriptografiaArquivo } from "./persistencia/CriptografiaArquivo";
-import { RepositorioArquivo } from "./persistencia/RepositorioArquivo";
+import {
+    CriptografiaArquivo
+} from "./persistencia/CriptografiaArquivo";
+
+import {
+    RepositorioArquivo
+} from "./persistencia/RepositorioArquivo";
+
+import {
+    JournalTransacao
+} from "./auditoria/JournalTransacao";
 
 import {
     GerenciadorConfiguracaoMestre
@@ -19,15 +28,37 @@ import {
     ServicoAutenticacao
 } from "./autenticacao/ServicoAutenticacao";
 
+import {
+    ValidadorCNPJ
+} from "./validadores/ValidadorCNPJ";
+
+import {
+    ValidadorDataEntrada
+} from "./validadores/ValidadorDataEntrada";
+
+import {
+    ServicoOrganizacao
+} from "./servicos/ServicoOrganizacao";
+
+import {
+    ServicoLote
+} from "./servicos/ServicoLote";
+
+import {
+    ServicoEquipamento
+} from "./servicos/ServicoEquipamento";
+
+import {
+    ServicoRelatorio
+} from "./servicos/ServicoRelatorio";
+
+import {
+    CLIInterface
+} from "./cli/CLIInterface";
+
 async function main(): Promise<void> {
     console.log(
-        "================================="
-    );
-    console.log(
-        "        GREENCODE CLI"
-    );
-    console.log(
-        "================================="
+        "Inicializando GREENCODE..."
     );
 
     const criptografia =
@@ -41,7 +72,9 @@ async function main(): Promise<void> {
 
     let configuracao;
 
-    if (gerenciadorConfig.existe()) {
+    if (
+        gerenciadorConfig.existe()
+    ) {
         console.log(
             "Configuração mestre encontrada."
         );
@@ -62,14 +95,15 @@ async function main(): Promise<void> {
             configuracao.chaveMestra
         );
 
-    let credenciais: Credencial[] = [];
-
     const arquivoCredenciais =
         "credenciais.json.enc";
 
+    let credenciais: Credencial[] = [];
+
     if (
         existsSync(
-            "./data/" + arquivoCredenciais
+            "./data/" +
+                arquivoCredenciais
         )
     ) {
         const dados =
@@ -79,9 +113,9 @@ async function main(): Promise<void> {
 
         credenciais =
             dados.map(
-                (dadosCredencial) =>
+                (item) =>
                     Credencial.fromJSON(
-                        dadosCredencial
+                        item
                     )
             );
     }
@@ -93,26 +127,38 @@ async function main(): Promise<void> {
                 configuracao.administrador.usuario
         );
 
-    if (!administradorExiste) {
+    if (
+        !administradorExiste
+    ) {
         const administrador =
             Credencial.fromJSON({
                 usuario:
-                    configuracao.administrador.usuario,
+                    configuracao
+                        .administrador
+                        .usuario,
 
                 hashSenha:
-                    configuracao.administrador.hashSenha,
+                    configuracao
+                        .administrador
+                        .hashSenha,
 
                 salt:
-                    configuracao.administrador.salt,
+                    configuracao
+                        .administrador
+                        .salt,
 
                 ultimoAcesso:
                     new Date().toISOString(),
 
                 papel:
-                    configuracao.administrador.papel
+                    configuracao
+                        .administrador
+                        .papel
             });
 
-        credenciais.push(administrador);
+        credenciais.push(
+            administrador
+        );
 
         repositorio.salvarEntidade(
             arquivoCredenciais,
@@ -120,92 +166,82 @@ async function main(): Promise<void> {
         );
 
         console.log(
-            "Administrador inicial registrado nas credenciais."
+            "Administrador inicial registrado."
         );
     }
+
+    console.log(
+        `Credenciais carregadas: ${credenciais.length}`
+    );
 
     const autenticacao =
         new ServicoAutenticacao(
             credenciais
         );
 
-    console.log();
+    const journal =
+        new JournalTransacao(
+            "BOOT",
+            new Date(),
+            "INICIALIZACAO",
+            "Sistema",
+            null,
+            null,
+            "sistema"
+        );
+
+    const validadorCNPJ =
+        new ValidadorCNPJ();
+
+    const validadorDataEntrada =
+        new ValidadorDataEntrada();
+
+    const servicoOrganizacao =
+        new ServicoOrganizacao(
+            repositorio,
+            validadorCNPJ,
+            journal
+        );
+
+    const servicoLote =
+        new ServicoLote(
+            repositorio,
+            validadorDataEntrada,
+            journal
+        );
+
+    const servicoEquipamento =
+        new ServicoEquipamento(
+            repositorio,
+            journal
+        );
+
+    const servicoRelatorio =
+        new ServicoRelatorio(
+            repositorio
+        );
+
+    const cli =
+        new CLIInterface(
+            autenticacao,
+            servicoOrganizacao,
+            servicoLote,
+            servicoEquipamento,
+            servicoRelatorio
+        );
+
     console.log(
-        "Sistema preparado."
+        "GREENCODE pronto."
     );
-    console.log(
-        `Usuários carregados: ${credenciais.length}`
-    );
-    console.log();
 
-    const usuario =
-        await perguntarLogin(
-            autenticacao
-        );
-
-    console.log();
-    console.log(
-        `Bem-vindo, ${usuario}.`
-    );
-}
-
-async function perguntarLogin(
-    autenticacao: ServicoAutenticacao
-): Promise<string> {
-    const readline =
-        await import("readline");
-
-    const interfaceTerminal =
-        readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
-
-    const perguntar = (
-        pergunta: string
-    ): Promise<string> =>
-        new Promise(
-            (resolve) => {
-                interfaceTerminal.question(
-                    pergunta,
-                    resolve
-                );
-            }
-        );
-
-    try {
-        const usuario =
-            await perguntar("Usuário: ");
-
-        const senha =
-            await perguntar("Senha: ");
-
-        const sessao =
-            autenticacao.login(
-                usuario,
-                senha
-            );
-
-        console.log();
-        console.log(
-            "Login realizado com sucesso."
-        );
-        console.log(
-            "Papel:",
-            sessao.getPapel()
-        );
-
-        return sessao.getUsuario();
-    } finally {
-        interfaceTerminal.close();
-    }
+    await cli.iniciarLoop();
 }
 
 main().catch(
     (erro: unknown) => {
         console.error();
         console.error(
-            "ERRO:",
+            "[ERRO FATAL]",
             erro instanceof Error
                 ? erro.message
                 : "Erro desconhecido."
