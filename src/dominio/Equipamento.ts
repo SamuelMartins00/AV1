@@ -67,6 +67,17 @@ export class Equipamento {
             );
         }
 
+        if (
+            novoStatus ===
+                StatusRastreamento.EM_DESMONTE &&
+            this.statusRastreamento !==
+                StatusRastreamento.AGUARDANDO_DESMONTE
+        ) {
+            throw new Error(
+                "O equipamento só pode entrar em desmonte após a triagem completa."
+            );
+        }
+
         this.statusRastreamento =
             novoStatus;
     }
@@ -93,8 +104,8 @@ export class Equipamento {
             ];
 
         const origem =
-            ultimaMovimentacao?.getDestino()
-            ?? "ORIGEM";
+            ultimaMovimentacao?.getDestino() ??
+            "ORIGEM";
 
         const movimentacao =
             new Movimentacao(
@@ -124,6 +135,63 @@ export class Equipamento {
     ): void {
         this.loteId = loteId;
         this.posicaoNoLote = posicao;
+    }
+
+    public atualizarEstadoFisico(
+        novoEstado: EstadoFisico,
+        justificativa: string = ""
+    ): void {
+        const indiceAtual =
+            this.obterIndiceEstado(
+                this.estadoFisico
+            );
+
+        const novoIndice =
+            this.obterIndiceEstado(
+                novoEstado
+            );
+
+        const queda =
+            novoIndice - indiceAtual;
+
+        if (
+            queda >= 2 &&
+            !justificativa.trim()
+        ) {
+            throw new Error(
+                "É obrigatória uma justificativa quando o estado físico piora duas ou mais categorias."
+            );
+        }
+
+        this.estadoFisico =
+            novoEstado;
+    }
+
+    private obterIndiceEstado(
+        estado: EstadoFisico
+    ): number {
+        switch (estado) {
+            case EstadoFisico.NOVO:
+                return 0;
+
+            case EstadoFisico.BOM_ESTADO:
+                return 1;
+
+            case EstadoFisico.USADO_LEVE:
+                return 2;
+
+            case EstadoFisico.USADO_MODERADO:
+                return 3;
+
+            case EstadoFisico.DANIFICADO_LEVE:
+                return 4;
+
+            case EstadoFisico.DANIFICADO_GRAVE:
+                return 5;
+
+            case EstadoFisico.INSERVIVEL:
+                return 6;
+        }
     }
 
     public getId(): string {
