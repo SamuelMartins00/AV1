@@ -19,7 +19,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "check": "tsc --noEmit",
-    "test": "ts-node tests/test4.ts"
+    "test": "ts-node tests/test6.ts"
   },
   "keywords": [
     "greencode",

@@ -1,4 +1,4 @@
-import { Validador } from "./validador";
+import { Validador } from "./Validador";
 
 export class ValidadorCNPJ extends Validador {
 
