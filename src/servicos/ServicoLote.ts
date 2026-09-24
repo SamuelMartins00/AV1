@@ -7,7 +7,6 @@ import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
 import { ValidadorDataEntrada } from "../validadores/ValidadorDataEntrada";
 import { JournalTransacao } from "../auditoria/JournalTransacao";
 
-import { StatusLote } from "../enums/StatusLote";
 import { StatusRastreamento } from "../enums/StatusRastreamento";
 
 interface DadosLote {
@@ -21,7 +20,8 @@ interface DadosLote {
 
 export class ServicoLote {
     private repositorio: RepositorioArquivo;
-    private validadorDataEntrada: ValidadorDataEntrada;
+    private validadorDataEntrada:
+        ValidadorDataEntrada;
     private journal: JournalTransacao;
 
     private readonly arquivoLotes =
@@ -32,20 +32,27 @@ export class ServicoLote {
 
     constructor(
         repositorio: RepositorioArquivo,
-        validadorDataEntrada: ValidadorDataEntrada,
+        validadorDataEntrada:
+            ValidadorDataEntrada,
         journal: JournalTransacao
     ) {
-        this.repositorio = repositorio;
+        this.repositorio =
+            repositorio;
+
         this.validadorDataEntrada =
             validadorDataEntrada;
-        this.journal = journal;
+
+        this.journal =
+            journal;
     }
 
-    criarLote(
+    public criarLote(
         dados: DadosLote
     ): Lote {
         const dataEntrada =
-            new Date(dados.dataEntrada);
+            new Date(
+                dados.dataEntrada
+            );
 
         if (
             !this.validadorDataEntrada.validar(
@@ -58,63 +65,79 @@ export class ServicoLote {
             );
         }
 
-        const lote = new Lote(
-            dados.id ?? randomUUID(),
-            dataEntrada,
-            dados.organizacaoId,
-            dados.notaFiscal,
-            dados.transportadora,
-            [],
-            undefined,
-            dados.observacoes ?? ""
-        );
+        const lote =
+            new Lote(
+                dados.id ??
+                    randomUUID(),
+                dataEntrada,
+                dados.organizacaoId,
+                dados.notaFiscal,
+                dados.transportadora,
+                [],
+                undefined,
+                dados.observacoes ??
+                    ""
+            );
 
-        this.journal = new JournalTransacao(
-            randomUUID(),
-            new Date(),
-            "CRIAR",
-            "Lote",
-            null,
-            this.loteParaJSON(lote),
-            "sistema"
-        );
+        const dadosDepois =
+            this.loteParaJSON(
+                lote
+            );
+
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "CRIAR",
+                "Lote",
+                null,
+                dadosDepois,
+                "sistema"
+            );
 
         this.journal.registrar();
 
         this.repositorio.salvarEntidade(
             this.arquivoLotes,
-            this.loteParaJSON(lote)
+            dadosDepois
         );
 
         return lote;
     }
 
-    adicionarEquipamentoLote(
+    public adicionarEquipamentoLote(
         loteId: string,
         equipamento: Equipamento
     ): void {
         const lote =
-            this.buscarLote(loteId);
+            this.buscarLote(
+                loteId
+            );
 
         const dadosAntes =
-            this.loteParaJSON(lote);
+            this.loteParaJSON(
+                lote
+            );
 
         lote.adicionarEquipamento(
             equipamento
         );
 
         const dadosDepois =
-            this.loteParaJSON(lote);
+            this.loteParaJSON(
+                lote
+            );
 
-        this.journal = new JournalTransacao(
-            randomUUID(),
-            new Date(),
-            "ADICIONAR_EQUIPAMENTO",
-            "Lote",
-            dadosAntes,
-            dadosDepois,
-            "sistema"
-        );
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "ADICIONAR_EQUIPAMENTO",
+                "Lote",
+                dadosAntes,
+                dadosDepois,
+                "sistema"
+            );
 
         this.journal.registrar();
 
@@ -131,29 +154,36 @@ export class ServicoLote {
         );
     }
 
-    processarTriagem(
+    public processarTriagem(
         loteId: string
     ): void {
         const lote =
-            this.buscarLote(loteId);
-
-        const dadosAntes =
-            this.loteParaJSON(lote);
+            this.buscarLote(
+                loteId
+            );
 
         if (
-            lote.equipamentos.length === 0
+            lote.getEquipamentos()
+                .length === 0
         ) {
             throw new Error(
                 "Não é possível concluir a triagem de um lote sem equipamentos."
             );
         }
 
-        lote.statusProcessamento =
-            StatusLote.TRIAGEM_CONCLUIDA;
+        const dadosAntes =
+            this.loteParaJSON(
+                lote
+            );
+
+        lote.marcarTriagemConcluida();
+
+        const equipamentos =
+            lote.getEquipamentos();
 
         for (
             const equipamento
-            of lote.equipamentos
+            of equipamentos
         ) {
             equipamento.atualizarStatus(
                 StatusRastreamento.AGUARDANDO_DESMONTE,
@@ -162,17 +192,20 @@ export class ServicoLote {
         }
 
         const dadosDepois =
-            this.loteParaJSON(lote);
+            this.loteParaJSON(
+                lote
+            );
 
-        this.journal = new JournalTransacao(
-            randomUUID(),
-            new Date(),
-            "PROCESSAR_TRIAGEM",
-            "Lote",
-            dadosAntes,
-            dadosDepois,
-            "sistema"
-        );
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "PROCESSAR_TRIAGEM",
+                "Lote",
+                dadosAntes,
+                dadosDepois,
+                "sistema"
+            );
 
         this.journal.registrar();
 
@@ -183,7 +216,7 @@ export class ServicoLote {
 
         for (
             const equipamento
-            of lote.equipamentos
+            of equipamentos
         ) {
             this.repositorio.salvarEntidade(
                 this.arquivoEquipamentos,
@@ -194,7 +227,7 @@ export class ServicoLote {
         }
     }
 
-    consultarLotePorPeriodo(
+    public consultarLotePorPeriodo(
         dataInicio: Date,
         dataFim: Date
     ): Lote[] {
@@ -214,14 +247,16 @@ export class ServicoLote {
         return dados
             .map(
                 (item) =>
-                    this.loteDeJSON(item)
+                    this.loteDeJSON(
+                        item
+                    )
             )
             .filter(
                 (lote) =>
-                    lote.dataEntrada >=
-                    dataInicio &&
-                    lote.dataEntrada <=
-                    dataFim
+                    lote.getDataEntrada() >=
+                        dataInicio &&
+                    lote.getDataEntrada() <=
+                        dataFim
             );
     }
 
@@ -240,33 +275,48 @@ export class ServicoLote {
             );
         }
 
-        return this.loteDeJSON(dados);
+        return this.loteDeJSON(
+            dados
+        );
     }
 
     private loteParaJSON(
         lote: Lote
     ): any {
         return {
-            id: lote.id,
+            id:
+                lote.getId(),
+
             dataEntrada:
-                lote.dataEntrada.toISOString(),
+                lote
+                    .getDataEntrada()
+                    .toISOString(),
+
             organizacaoId:
-                lote.organizacaoId,
+                lote.getOrganizacaoId(),
+
             notaFiscal:
-                lote.notaFiscal,
+                lote.getNotaFiscal(),
+
             transportadora:
-                lote.transportadora,
+                lote.getTransportadora(),
+
             equipamentos:
-                lote.equipamentos.map(
-                    (equipamento) =>
-                        this.equipamentoParaJSON(
-                            equipamento
-                        )
-                ),
+                lote
+                    .getEquipamentos()
+                    .map(
+                        (equipamento) =>
+                            this.equipamentoParaJSON(
+                                equipamento
+                            )
+                    ),
+
             statusProcessamento:
-                lote.statusProcessamento,
+                lote
+                    .getStatusProcessamento(),
+
             observacoes:
-                lote.observacoes
+                lote.getObservacoes()
         };
     }
 
@@ -278,11 +328,11 @@ export class ServicoLote {
                 dados.equipamentos
             )
                 ? dados.equipamentos.map(
-                    (item: any) =>
-                        this.equipamentoDeJSON(
-                            item
-                        )
-                )
+                      (item: any) =>
+                          this.equipamentoDeJSON(
+                              item
+                          )
+                  )
                 : [];
 
         return new Lote(
@@ -295,7 +345,8 @@ export class ServicoLote {
             dados.transportadora,
             equipamentos,
             dados.statusProcessamento,
-            dados.observacoes ?? ""
+            dados.observacoes ??
+                ""
         );
     }
 
@@ -304,46 +355,77 @@ export class ServicoLote {
     ): any {
         return {
             id:
-                equipamento.id,
+                equipamento.getId(),
 
             codigoBarrasInterno:
-                equipamento.codigoBarrasInterno,
+                equipamento
+                    .getCodigoBarrasInterno(),
 
             tipo:
-                equipamento.tipo,
+                equipamento.getTipo(),
 
             marca:
-                equipamento.marca,
+                equipamento.getMarca(),
 
             modelo:
-                equipamento.modelo,
+                equipamento.getModelo(),
 
             anoFabricacao:
-                equipamento.anoFabricacao,
+                equipamento
+                    .getAnoFabricacao(),
 
             estadoFisico:
-                equipamento.estadoFisico,
+                equipamento
+                    .getEstadoFisico(),
 
             pesoQuilogramas:
-                equipamento.pesoQuilogramas,
+                equipamento
+                    .getPesoQuilogramas(),
 
             loteId:
-                equipamento.loteId,
+                equipamento.getLoteId(),
 
             posicaoNoLote:
-                equipamento.posicaoNoLote,
+                equipamento
+                    .getPosicaoNoLote(),
 
             statusRastreamento:
-                equipamento.statusRastreamento,
+                equipamento
+                    .getStatusRastreamento(),
 
             historicoMovimentacao:
                 equipamento
-                    .historicoMovimentacao
+                    .getHistoricoMovimentacao()
                     .map(
                         (movimentacao) => ({
-                            ...movimentacao,
+                            id:
+                                movimentacao
+                                    .getId(),
+
+                            equipamentoId:
+                                movimentacao
+                                    .getEquipamentoId(),
+
                             dataHora:
-                                movimentacao.dataHora.toISOString()
+                                movimentacao
+                                    .getDataHora()
+                                    .toISOString(),
+
+                            origem:
+                                movimentacao
+                                    .getOrigem(),
+
+                            destino:
+                                movimentacao
+                                    .getDestino(),
+
+                            responsavel:
+                                movimentacao
+                                    .getResponsavel(),
+
+                            observacao:
+                                movimentacao
+                                    .getObservacao()
                         })
                     )
         };
@@ -367,16 +449,15 @@ export class ServicoLote {
             Array.isArray(
                 dados.historicoMovimentacao
             )
-                ? dados.historicoMovimentacao
-                    .map(
-                        (item: any) => ({
-                            ...item,
-                            dataHora:
-                                new Date(
-                                    item.dataHora
-                                )
-                        })
-                    )
+                ? dados.historicoMovimentacao.map(
+                      (item: any) => ({
+                          ...item,
+                          dataHora:
+                              new Date(
+                                  item.dataHora
+                              )
+                      })
+                  )
                 : []
         );
     }

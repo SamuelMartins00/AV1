@@ -40,20 +40,30 @@ export class ServicoOrganizacao {
         validadorCNPJ: ValidadorCNPJ,
         journal: JournalTransacao
     ) {
-        this.repositorio = repositorio;
-        this.validadorCNPJ = validadorCNPJ;
-        this.journal = journal;
+        this.repositorio =
+            repositorio;
+
+        this.validadorCNPJ =
+            validadorCNPJ;
+
+        this.journal =
+            journal;
     }
 
-    cadastrarOrganizacao(
+    public cadastrarOrganizacao(
         dados: DadosOrganizacao
     ): Organizacao {
         const cnpjLimpo =
             dados.cnpj.replace(/\D/g, "");
 
-        if (!this.validadorCNPJ.validar(cnpjLimpo)) {
+        if (
+            !this.validadorCNPJ.validar(
+                cnpjLimpo
+            )
+        ) {
             throw new Error(
-                this.validadorCNPJ.obterMensagemErro()
+                this.validadorCNPJ
+                    .obterMensagemErro()
             );
         }
 
@@ -65,7 +75,8 @@ export class ServicoOrganizacao {
         const cnpjExiste =
             organizacoes.some(
                 (item) =>
-                    item.cnpj === cnpjLimpo
+                    item.cnpj ===
+                    cnpjLimpo
             );
 
         if (cnpjExiste) {
@@ -75,7 +86,8 @@ export class ServicoOrganizacao {
         }
 
         const organizacaoId =
-            dados.id ?? randomUUID();
+            dados.id ??
+            randomUUID();
 
         const contrato =
             this.criarContrato(
@@ -97,29 +109,33 @@ export class ServicoOrganizacao {
                 contrato
             );
 
-        this.journal = new JournalTransacao(
-            randomUUID(),
-            new Date(),
-            "CRIAR",
-            "Organizacao",
-            null,
-            organizacao,
-            "sistema"
-        );
+        const dadosDepois =
+            this.organizacaoParaJSON(
+                organizacao
+            );
+
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "CRIAR",
+                "Organizacao",
+                null,
+                dadosDepois,
+                "sistema"
+            );
 
         this.journal.registrar();
 
         this.repositorio.salvarEntidade(
             this.arquivo,
-            this.organizacaoParaJSON(
-                organizacao
-            )
+            dadosDepois
         );
 
         return organizacao;
     }
 
-    buscarOrganizacao(
+    public buscarOrganizacao(
         id: string
     ): Organizacao {
         const dados =
@@ -139,9 +155,8 @@ export class ServicoOrganizacao {
         );
     }
 
-    listarOrganizacoesAtivas():
+    public listarOrganizacoesAtivas():
         Organizacao[] {
-
         const dados =
             this.repositorio.listarEntidades(
                 this.arquivo
@@ -149,7 +164,8 @@ export class ServicoOrganizacao {
 
         return dados
             .filter(
-                (item) => item.ativo === true
+                (item) =>
+                    item.ativo === true
             )
             .map(
                 (item) =>
@@ -159,7 +175,7 @@ export class ServicoOrganizacao {
             );
     }
 
-    renovarContrato(
+    public renovarContrato(
         organizacaoId: string,
         novoVencimento: Date
     ): void {
@@ -168,15 +184,12 @@ export class ServicoOrganizacao {
                 organizacaoId
             );
 
-        if (!organizacao.contratoVigente) {
-            throw new Error(
-                "A organização não possui contrato vigente."
-            );
-        }
+        const contrato =
+            organizacao
+                .getContratoVigente();
 
         const vencimentoAnterior =
-            organizacao.contratoVigente
-                .dataVencimento;
+            contrato.getDataVencimento();
 
         if (
             novoVencimento <=
@@ -192,7 +205,7 @@ export class ServicoOrganizacao {
                 organizacao
             );
 
-        organizacao.contratoVigente.renovar(
+        contrato.renovar(
             novoVencimento
         );
 
@@ -201,15 +214,16 @@ export class ServicoOrganizacao {
                 organizacao
             );
 
-        this.journal = new JournalTransacao(
-            randomUUID(),
-            new Date(),
-            "RENOVAR_CONTRATO",
-            "Organizacao",
-            dadosAntes,
-            dadosDepois,
-            "sistema"
-        );
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "RENOVAR_CONTRATO",
+                "Organizacao",
+                dadosAntes,
+                dadosDepois,
+                "sistema"
+            );
 
         this.journal.registrar();
 
@@ -225,7 +239,9 @@ export class ServicoOrganizacao {
     ): Contrato {
         const dataAssinatura =
             dados.dataAssinatura
-                ? new Date(dados.dataAssinatura)
+                ? new Date(
+                      dados.dataAssinatura
+                  )
                 : new Date();
 
         const dataVencimento =
@@ -256,7 +272,8 @@ export class ServicoOrganizacao {
         }
 
         return new Contrato(
-            dados.id ?? randomUUID(),
+            dados.id ??
+                randomUUID(),
             organizacaoId,
             dataAssinatura,
             dataVencimento,
@@ -269,64 +286,72 @@ export class ServicoOrganizacao {
     private organizacaoParaJSON(
         organizacao: Organizacao
     ): any {
+        const contrato =
+            organizacao
+                .getContratoVigente();
+
         return {
-            id: organizacao.id,
+            id:
+                organizacao.getId(),
+
             razaoSocial:
-                organizacao.razaoSocial,
-            cnpj: organizacao.cnpj,
+                organizacao
+                    .getRazaoSocial(),
+
+            cnpj:
+                organizacao.getCnpj(),
+
             inscricaoEstadual:
-                organizacao.inscricaoEstadual,
+                organizacao
+                    .getInscricaoEstadual(),
+
             enderecoCompleto:
-                organizacao.enderecoCompleto,
+                organizacao
+                    .getEnderecoCompleto(),
+
             telefone:
-                organizacao.telefone,
+                organizacao.getTelefone(),
+
             email:
-                organizacao.email,
+                organizacao.getEmail(),
+
             dataCadastro:
-                organizacao.dataCadastro.toISOString(),
+                organizacao
+                    .getDataCadastro()
+                    .toISOString(),
+
             ativo:
-                organizacao.ativo,
-            contratoVigente:
-                organizacao.contratoVigente
-                    ? {
-                          id:
-                              organizacao
-                                  .contratoVigente
-                                  .id,
+                organizacao.isAtiva(),
 
-                          organizacaoId:
-                              organizacao
-                                  .contratoVigente
-                                  .organizacaoId,
+            contratoVigente: {
+                id:
+                    contrato.getId(),
 
-                          dataAssinatura:
-                              organizacao
-                                  .contratoVigente
-                                  .dataAssinatura
-                                  .toISOString(),
+                organizacaoId:
+                    contrato
+                        .getOrganizacaoId(),
 
-                          dataVencimento:
-                              organizacao
-                                  .contratoVigente
-                                  .dataVencimento
-                                  .toISOString(),
+                dataAssinatura:
+                    contrato
+                        .getDataAssinatura()
+                        .toISOString(),
 
-                          clausulas:
-                              organizacao
-                                  .contratoVigente
-                                  .clausulas,
+                dataVencimento:
+                    contrato
+                        .getDataVencimento()
+                        .toISOString(),
 
-                          valorMensal:
-                              organizacao
-                                  .contratoVigente
-                                  .valorMensal,
+                clausulas:
+                    contrato.getClausulas(),
 
-                          renovacaoAutomatica:
-                              organizacao
-                                  .contratoVigente
-                                  .renovacaoAutomatica
-                      }
-                    : null
+                valorMensal:
+                    contrato
+                        .getValorMensal(),
+
+                renovacaoAutomatica:
+                    contrato
+                        .isRenovacaoAutomatica()
+            }
         };
     }
 
@@ -352,7 +377,8 @@ export class ServicoOrganizacao {
                 new Date(
                     contratoDados.dataVencimento
                 ),
-                contratoDados.clausulas ?? [],
+                contratoDados.clausulas ??
+                    [],
                 contratoDados.valorMensal,
                 contratoDados.renovacaoAutomatica
             );
@@ -365,7 +391,9 @@ export class ServicoOrganizacao {
             dados.enderecoCompleto,
             dados.telefone,
             dados.email,
-            new Date(dados.dataCadastro),
+            new Date(
+                dados.dataCadastro
+            ),
             dados.ativo,
             contrato
         );
