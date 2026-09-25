@@ -756,6 +756,19 @@ export class CLIInterface {
                         )
                         : new Date();
 
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+
+                const dataEntradaComparacao =
+                    new Date(dataEntrada.getTime());
+                dataEntradaComparacao.setHours(0, 0, 0, 0);
+
+                if (dataEntradaComparacao > hoje) {
+                    throw new Error(
+                        "A data de entrada não pode ser futura."
+                    );
+                }
+
                 const lote =
                     this.lote.criarLote({
                         id:
@@ -1027,6 +1040,26 @@ export class CLIInterface {
 
                 const responsavel =
                     sessao.getUsuario();
+
+                const destinoNormalizado =
+                    destino.trim().toLowerCase();
+
+                if (destinoNormalizado.includes("desmont")) {
+                    const historico =
+                        this.equipamento.rastrearEquipamento(id);
+
+                    const status =
+                        historico.equipamento.getStatusRastreamento();
+
+                    if (
+                        status !== StatusRastreamento.AGUARDANDO_DESMONTE &&
+                        status !== StatusRastreamento.EM_DESMONTE
+                    ) {
+                        throw new Error(
+                            "O equipamento só pode ser movimentado para desmontagem após a triagem."
+                        );
+                    }
+                }
 
                 this.equipamento
                     .registrarMovimentacao(
@@ -1816,14 +1849,37 @@ export class CLIInterface {
     private converterData(
         valor: string
     ): Date {
-        const data =
-            new Date(valor);
+        const texto = valor.trim();
 
-        if (
-            isNaN(
-                data.getTime()
-            )
-        ) {
+        const somenteData =
+            /^(\d{4})-(\d{2})-(\d{2})$/
+                .exec(texto);
+
+        if (somenteData !== null) {
+            const ano = Number(somenteData[1]);
+            const mes = Number(somenteData[2]);
+            const dia = Number(somenteData[3]);
+
+            const data =
+                new Date(ano, mes - 1, dia);
+
+            const dataValida =
+                data.getFullYear() === ano &&
+                data.getMonth() === mes - 1 &&
+                data.getDate() === dia;
+
+            if (!dataValida) {
+                throw new Error(
+                    `Data inválida: ${valor}`
+                );
+            }
+
+            return data;
+        }
+
+        const data = new Date(texto);
+
+        if (isNaN(data.getTime())) {
             throw new Error(
                 `Data inválida: ${valor}`
             );
