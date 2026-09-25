@@ -69,9 +69,9 @@ export class Equipamento {
 
         if (
             novoStatus ===
-                StatusRastreamento.EM_DESMONTE &&
+            StatusRastreamento.EM_DESMONTE &&
             this.statusRastreamento !==
-                StatusRastreamento.AGUARDANDO_DESMONTE
+            StatusRastreamento.AGUARDANDO_DESMONTE
         ) {
             throw new Error(
                 "O equipamento só pode entrar em desmonte após a triagem completa."
@@ -84,28 +84,39 @@ export class Equipamento {
 
     public registrarMovimentacao(
         destino: string,
-        responsavel: string
+        responsavel: string,
+        observacao: string = ""
     ): void {
-        if (!destino.trim()) {
+        const destinoLimpo =
+            destino.trim();
+
+        const responsavelLimpo =
+            responsavel.trim();
+
+        const observacaoLimpa =
+            observacao.trim();
+
+        if (destinoLimpo === "") {
             throw new Error(
-                "O destino não pode ser vazio."
+                "O destino da movimentação é obrigatório."
             );
         }
 
-        if (!responsavel.trim()) {
+        if (responsavelLimpo === "") {
             throw new Error(
-                "O responsável não pode ser vazio."
+                "O responsável pela movimentação é obrigatório."
             );
         }
 
         const ultimaMovimentacao =
             this.historicoMovimentacao[
-                this.historicoMovimentacao.length - 1
+            this.historicoMovimentacao.length - 1
             ];
 
         const origem =
-            ultimaMovimentacao?.getDestino() ??
-            "ORIGEM";
+            ultimaMovimentacao !== undefined
+                ? ultimaMovimentacao.getDestino()
+                : "Entrada";
 
         const movimentacao =
             new Movimentacao(
@@ -113,19 +124,13 @@ export class Equipamento {
                 this.id,
                 new Date(),
                 origem,
-                destino,
-                responsavel,
-                ""
+                destinoLimpo,
+                responsavelLimpo,
+                observacaoLimpa
             );
 
         this.historicoMovimentacao.push(
             movimentacao
-        );
-    }
-
-    public calcularDepreciacao(): number {
-        throw new Error(
-            "Regra de cálculo de depreciação ainda não implementada."
         );
     }
 

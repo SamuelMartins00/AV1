@@ -102,23 +102,29 @@ export class CLIInterface {
         this.exibirCabecalho();
 
         while (true) {
+            let sessao: Sessao;
+
             if (this.sessaoAtual === null) {
-                const loginRealizado =
+                const sessaoAposLogin =
                     await this.realizarLogin();
 
-                if (!loginRealizado) {
+                if (sessaoAposLogin === null) {
                     break;
                 }
 
+                this.sessaoAtual =
+                    sessaoAposLogin;
+
                 this.exibirMenuPorPapel(
-                    this.sessaoAtual!.getPapel()
+                    sessaoAposLogin.getPapel()
                 );
 
-                continue;
+                sessao =
+                    sessaoAposLogin;
+            } else {
+                sessao =
+                    this.sessaoAtual;
             }
-
-            const sessao =
-                this.sessaoAtual;
 
             const token =
                 sessao.getToken();
@@ -231,8 +237,17 @@ export class CLIInterface {
             modulo === "ajuda" ||
             modulo === "help"
         ) {
+            const sessao =
+                this.sessaoAtual;
+
+            if (sessao === null) {
+                throw new Error(
+                    "Nenhum usuário autenticado."
+                );
+            }
+
             this.exibirMenuPorPapel(
-                this.sessaoAtual.getPapel()
+                sessao.getPapel()
             );
 
             return;
@@ -381,6 +396,10 @@ export class CLIInterface {
         );
 
         console.log(
+            "  equip movimentar ID --destino DESTINO --observacao \"...\""
+        );
+
+        console.log(
             "  equip estado ID --novo ESTADO --justificativa \"...\""
         );
 
@@ -437,6 +456,10 @@ export class CLIInterface {
         );
 
         console.log(
+            "  equip movimentar ID --destino DESTINO --observacao \"...\""
+        );
+
+        console.log(
             "  equip estado ID --novo ESTADO --justificativa \"...\""
         );
 
@@ -472,9 +495,15 @@ export class CLIInterface {
         ) {
             return false;
         }
+        const sessao =
+            this.sessaoAtual;
+
+        if (sessao === null) {
+            return false;
+        }
 
         const papel =
-            this.sessaoAtual.getPapel();
+            sessao.getPapel();
 
         switch (papel) {
             case PapelUsuario.ADMINISTRADOR:
@@ -952,13 +981,63 @@ export class CLIInterface {
                                 .toLocaleString("pt-BR")} | ` +
                             `${movimentacao.getOrigem()} -> ` +
                             `${movimentacao.getDestino()} | ` +
-                            `Responsável: ${movimentacao.getResponsavel()}`
+                            `Responsável: ${movimentacao.getResponsavel()}` +
+                            (movimentacao.getObservacao()
+                                ? ` | Observação: ${movimentacao.getObservacao()}`
+                                : "")
                         );
                     }
                 }
 
                 console.log(
                     "======================================"
+                );
+
+                break;
+            }
+
+            case "movimentar": {
+                const id =
+                    this.obterPosicional(
+                        argumentos,
+                        0,
+                        "Informe o ID do equipamento."
+                    );
+
+                this.exigirOpcoes(
+                    argumentos,
+                    ["destino"]
+                );
+
+                const destino =
+                    argumentos.opcoes.destino;
+
+                const observacao =
+                    argumentos.opcoes.observacao ??
+                    "";
+
+                const sessao =
+                    this.sessaoAtual;
+
+                if (sessao === null) {
+                    throw new Error(
+                        "Nenhum usuário autenticado."
+                    );
+                }
+
+                const responsavel =
+                    sessao.getUsuario();
+
+                this.equipamento
+                    .registrarMovimentacao(
+                        id,
+                        destino,
+                        responsavel,
+                        observacao
+                    );
+
+                this.sucesso(
+                    `Movimentação registrada para o equipamento ${id}.`
                 );
 
                 break;
@@ -1166,7 +1245,7 @@ export class CLIInterface {
     }
 
     private async realizarLogin():
-        Promise<boolean> {
+        Promise<Sessao | null> {
         while (true) {
             const usuario =
                 await this.perguntar(
@@ -1180,7 +1259,7 @@ export class CLIInterface {
                     .toLowerCase() ===
                 "sair"
             ) {
-                return false;
+                return null;
             }
 
             const senha =
@@ -1200,7 +1279,7 @@ export class CLIInterface {
                     `Login realizado com sucesso. Bem-vindo, ${sessao.getUsuario()}.`
                 );
 
-                return true;
+                return sessao;
             } catch (erro: unknown) {
                 this.erro(
                     erro instanceof Error
@@ -1213,134 +1292,157 @@ export class CLIInterface {
         }
     }
 
-    private async perguntarSenha(): Promise<string> {
-        return new Promise<string>((resolve) => {
-            /*
-             * Fecha temporariamente o readline principal
-             * para ele não disputar a entrada da senha.
-             */
-            this.fecharTerminal();
-
-            const stdin = process.stdin;
-            const stdout = process.stdout;
-
-            let senha = "";
-            let finalizado = false;
-
-            const finalizar = (): void => {
-                if (finalizado) {
+    private async perguntarSenha():
+        Promise<string> {
+        return new Promise<string>(
+            (resolve) => {
+                if (
+                    this.terminal === null
+                ) {
+                    resolve("");
                     return;
                 }
 
-                finalizado = true;
+                const stdin =
+                    process.stdin;
 
-                stdin.setRawMode?.(false);
-                stdin.removeListener(
+                const stdout =
+                    process.stdout;
+
+                /*
+                 * O readline não pode continuar
+                 * conectado ao stdin enquanto
+                 * capturamos a senha em modo bruto,
+                 * senão ele também ecoa os caracteres.
+                 */
+                this.terminal.close();
+                this.terminal = null;
+
+                // O readline pausa o stdin ao ser fechado.
+                // Precisamos retomá-lo para receber a senha.
+                stdin.resume();
+
+                stdout.write(
+                    "Senha: "
+                );
+
+                let senha = "";
+
+                const antigaRawMode =
+                    stdin.isRaw;
+
+                stdin.setRawMode?.(
+                    true
+                );
+
+                const finalizar = () => {
+                    stdin.setRawMode?.(
+                        antigaRawMode ??
+                        false
+                    );
+
+                    stdin.off(
+                        "data",
+                        onData
+                    );
+
+                    stdout.write(
+                        "\n"
+                    );
+
+                    this.criarTerminal();
+
+                    resolve(
+                        senha
+                    );
+                };
+
+                const onData =
+                    (dados: Buffer) => {
+                        const tecla =
+                            dados.toString(
+                                "utf8"
+                            );
+
+                        if (
+                            tecla ===
+                            "\u0003"
+                        ) {
+                            stdin.setRawMode?.(
+                                antigaRawMode ??
+                                false
+                            );
+
+                            stdin.off(
+                                "data",
+                                onData
+                            );
+
+                            stdout.write(
+                                "\n"
+                            );
+
+                            this.criarTerminal();
+
+                            process.exit(
+                                130
+                            );
+                        }
+
+                        if (
+                            tecla ===
+                            "\r" ||
+                            tecla ===
+                            "\n"
+                        ) {
+                            finalizar();
+                            return;
+                        }
+
+                        if (
+                            tecla ===
+                            "\b" ||
+                            tecla ===
+                            "\x7f"
+                        ) {
+                            if (
+                                senha.length >
+                                0
+                            ) {
+                                senha =
+                                    senha.slice(
+                                        0,
+                                        -1
+                                    );
+
+                                stdout.write(
+                                    "\b \b"
+                                );
+                            }
+
+                            return;
+                        }
+
+                        if (
+                            tecla.length ===
+                            1 &&
+                            tecla >= " "
+                        ) {
+                            senha +=
+                                tecla;
+
+                            stdout.write(
+                                "*"
+                            );
+                        }
+                    };
+
+                stdin.on(
                     "data",
                     onData
                 );
-
-                stdout.write("\n");
-
-                /*
-                 * Recria o terminal principal depois
-                 * que a senha foi digitada.
-                 */
-                this.criarTerminal();
-            };
-
-            const onData = (dados: Buffer): void => {
-                const tecla =
-                    dados.toString("utf8");
-
-                /*
-                 * Ctrl + C
-                 */
-                if (tecla === "\u0003") {
-                    finalizar();
-
-                    process.exit(130);
-                }
-
-                /*
-                 * Enter
-                 */
-                if (
-                    tecla === "\r" ||
-                    tecla === "\n"
-                ) {
-                    const senhaInformada =
-                        senha;
-
-                    finalizar();
-
-                    resolve(
-                        senhaInformada
-                    );
-
-                    return;
-                }
-
-                /*
-                 * Backspace
-                 */
-                if (
-                    tecla === "\b" ||
-                    tecla === "\x7f"
-                ) {
-                    if (senha.length > 0) {
-                        senha =
-                            senha.slice(
-                                0,
-                                -1
-                            );
-
-                        stdout.write(
-                            "\b \b"
-                        );
-                    }
-
-                    return;
-                }
-
-                /*
-                 * Ignora teclas de controle,
-                 * como setas e outras sequências ANSI.
-                 */
-                if (
-                    tecla.startsWith("\u001b")
-                ) {
-                    return;
-                }
-
-                /*
-                 * Aceita caracteres normais.
-                 * Isso também permite colar uma senha.
-                 */
-                for (
-                    const caractere
-                    of tecla
-                ) {
-                    if (
-                        caractere >= " "
-                    ) {
-                        senha += caractere;
-
-                        stdout.write("*");
-                    }
-                }
-            };
-
-            stdout.write("Senha: ");
-
-            stdin.setRawMode?.(true);
-            stdin.resume();
-
-            stdin.on(
-                "data",
-                onData
-            );
-        });
+            }
+        );
     }
 
     private fazerLogout(): void {
@@ -1406,6 +1508,7 @@ export class CLIInterface {
                         "lote triagem",
 
                         "equip rastrear",
+                        "equip movimentar",
                         "equip estado",
                         "equip codigo",
 
@@ -1710,46 +1813,11 @@ export class CLIInterface {
         return valor;
     }
 
-    private converterData(valor: string): Date {
-        const texto = valor.trim();
-
-        const correspondencia =
-            /^(\d{4})-(\d{2})-(\d{2})$/.exec(
-                texto
-            );
-
-        if (correspondencia !== null) {
-            const ano =
-                Number(correspondencia[1]);
-
-            const mes =
-                Number(correspondencia[2]);
-
-            const dia =
-                Number(correspondencia[3]);
-
-            const data =
-                new Date(
-                    ano,
-                    mes - 1,
-                    dia
-                );
-
-            if (
-                data.getFullYear() !== ano ||
-                data.getMonth() !== mes - 1 ||
-                data.getDate() !== dia
-            ) {
-                throw new Error(
-                    `Data inválida: ${valor}`
-                );
-            }
-
-            return data;
-        }
-
+    private converterData(
+        valor: string
+    ): Date {
         const data =
-            new Date(texto);
+            new Date(valor);
 
         if (
             isNaN(

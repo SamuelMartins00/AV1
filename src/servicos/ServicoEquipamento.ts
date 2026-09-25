@@ -94,10 +94,6 @@ export class ServicoEquipamento {
                 "sistema"
             );
 
-        /*
-         * Primeiro registra a transação.
-         * Somente depois persiste o novo estado.
-         */
         this.journal.registrar();
 
         this.repositorio.salvarEntidade(
@@ -125,6 +121,67 @@ export class ServicoEquipamento {
                 .padStart(6, "0");
 
         return `${tipo}-${numero}`;
+    }
+
+    public registrarMovimentacao(
+        id: string,
+        destino: string,
+        responsavel: string,
+        observacao: string = ""
+    ): void {
+        const dados =
+            this.repositorio.carregarEntidade(
+                this.arquivo,
+                id
+            );
+
+        if (
+            dados === null ||
+            dados === undefined
+        ) {
+            throw new Error(
+                `Equipamento ${id} não encontrado.`
+            );
+        }
+
+        const equipamento =
+            this.equipamentoDeJSON(
+                dados
+            );
+
+        const dadosAntes =
+            this.equipamentoParaJSON(
+                equipamento
+            );
+
+        equipamento.registrarMovimentacao(
+            destino,
+            responsavel,
+            observacao
+        );
+
+        const dadosDepois =
+            this.equipamentoParaJSON(
+                equipamento
+            );
+
+        this.journal =
+            new JournalTransacao(
+                randomUUID(),
+                new Date(),
+                "REGISTRAR_MOVIMENTACAO",
+                "Equipamento",
+                dadosAntes,
+                dadosDepois,
+                responsavel
+            );
+
+        this.journal.registrar();
+
+        this.repositorio.salvarEntidade(
+            this.arquivo,
+            dadosDepois
+        );
     }
 
     private buscarEquipamento(
@@ -236,19 +293,19 @@ export class ServicoEquipamento {
                 dados.historicoMovimentacao
             )
                 ? dados.historicoMovimentacao.map(
-                      (item: any) =>
-                          new Movimentacao(
-                              item.id,
-                              item.equipamentoId,
-                              new Date(
-                                  item.dataHora
-                              ),
-                              item.origem,
-                              item.destino,
-                              item.responsavel,
-                              item.observacao ?? ""
-                          )
-                  )
+                    (item: any) =>
+                        new Movimentacao(
+                            item.id,
+                            item.equipamentoId,
+                            new Date(
+                                item.dataHora
+                            ),
+                            item.origem,
+                            item.destino,
+                            item.responsavel,
+                            item.observacao ?? ""
+                        )
+                )
                 : [];
 
         return new Equipamento(
