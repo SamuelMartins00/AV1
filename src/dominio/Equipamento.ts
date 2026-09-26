@@ -172,6 +172,56 @@ export class Equipamento {
             novoEstado;
     }
 
+    public calcularDepreciacao(
+        coeficiente: number,
+        valorBase: number,
+        anoReferencia: number =
+            new Date().getFullYear()
+    ): number {
+        if (
+            !Number.isFinite(coeficiente) ||
+            coeficiente < 0 ||
+            coeficiente > 1
+        ) {
+            throw new Error(
+                "O coeficiente de depreciação deve estar entre 0 e 1."
+            );
+        }
+
+        if (
+            !Number.isFinite(valorBase) ||
+            valorBase <= 0
+        ) {
+            throw new Error(
+                "O valor-base de depreciação deve ser maior que zero."
+            );
+        }
+
+        const anosUso = Math.max(
+            0,
+            anoReferencia - this.anoFabricacao
+        );
+
+        const fatorEstado =
+            1 -
+            this.obterIndiceEstado(
+                this.estadoFisico
+            ) *
+                0.08;
+
+        const valorResidual =
+            valorBase *
+            Math.pow(1 - coeficiente, anosUso) *
+            Math.max(0.1, fatorEstado);
+
+        return Number(
+            Math.max(
+                0,
+                valorBase - valorResidual
+            ).toFixed(2)
+        );
+    }
+
     private obterIndiceEstado(
         estado: EstadoFisico
     ): number {

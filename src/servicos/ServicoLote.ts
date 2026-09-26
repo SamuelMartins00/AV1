@@ -2,12 +2,15 @@ import { randomUUID } from "crypto";
 
 import { Lote } from "../dominio/Lote";
 import { Equipamento } from "../dominio/Equipamento";
+import { Movimentacao } from "../dominio/Movimentacao";
 
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
 import { ValidadorDataEntrada } from "../validadores/ValidadorDataEntrada";
 import { JournalTransacao } from "../auditoria/JournalTransacao";
 
 import { StatusRastreamento } from "../enums/StatusRastreamento";
+import { FabricaLote } from "../fabricas/FabricaLote";
+import { FabricaEquipamento } from "../fabricas/FabricaEquipamento";
 
 interface DadosLote {
     id?: string;
@@ -66,18 +69,18 @@ export class ServicoLote {
         }
 
         const lote =
-            new Lote(
-                dados.id ??
-                    randomUUID(),
+            FabricaLote.criar({
+                id: dados.id,
                 dataEntrada,
-                dados.organizacaoId,
-                dados.notaFiscal,
-                dados.transportadora,
-                [],
-                undefined,
-                dados.observacoes ??
-                    ""
-            );
+                organizacaoId:
+                    dados.organizacaoId,
+                notaFiscal:
+                    dados.notaFiscal,
+                transportadora:
+                    dados.transportadora,
+                observacoes:
+                    dados.observacoes ?? ""
+            });
 
         const dadosDepois =
             this.loteParaJSON(
@@ -335,19 +338,19 @@ export class ServicoLote {
                   )
                 : [];
 
-        return new Lote(
-            dados.id,
-            new Date(
+        return FabricaLote.criar({
+            id: dados.id,
+            dataEntrada: new Date(
                 dados.dataEntrada
             ),
-            dados.organizacaoId,
-            dados.notaFiscal,
-            dados.transportadora,
+            organizacaoId: dados.organizacaoId,
+            notaFiscal: dados.notaFiscal,
+            transportadora: dados.transportadora,
             equipamentos,
-            dados.statusProcessamento,
-            dados.observacoes ??
-                ""
-        );
+            statusProcessamento:
+                dados.statusProcessamento,
+            observacoes: dados.observacoes ?? ""
+        });
     }
 
     private equipamentoParaJSON(
@@ -434,31 +437,40 @@ export class ServicoLote {
     private equipamentoDeJSON(
         dados: any
     ): Equipamento {
-        return new Equipamento(
-            dados.id,
-            dados.codigoBarrasInterno,
-            dados.tipo,
-            dados.marca,
-            dados.modelo,
-            dados.anoFabricacao,
-            dados.estadoFisico,
-            dados.pesoQuilogramas,
-            dados.loteId,
-            dados.posicaoNoLote,
-            dados.statusRastreamento,
+        const movimentacoes =
             Array.isArray(
                 dados.historicoMovimentacao
             )
                 ? dados.historicoMovimentacao.map(
-                      (item: any) => ({
-                          ...item,
-                          dataHora:
-                              new Date(
-                                  item.dataHora
-                              )
-                      })
-                  )
-                : []
-        );
+                    (item: any) =>
+                        new Movimentacao(
+                            item.id,
+                            item.equipamentoId,
+                            new Date(item.dataHora),
+                            item.origem,
+                            item.destino,
+                            item.responsavel,
+                            item.observacao ?? ""
+                        )
+                )
+                : [];
+
+        return FabricaEquipamento.criar({
+            id: dados.id,
+            codigoBarrasInterno:
+                dados.codigoBarrasInterno,
+            tipo: dados.tipo,
+            marca: dados.marca,
+            modelo: dados.modelo,
+            anoFabricacao: dados.anoFabricacao,
+            estadoFisico: dados.estadoFisico,
+            pesoQuilogramas:
+                dados.pesoQuilogramas,
+            loteId: dados.loteId,
+            posicaoNoLote: dados.posicaoNoLote,
+            statusRastreamento:
+                dados.statusRastreamento,
+            historicoMovimentacao: movimentacoes
+        });
     }
 }

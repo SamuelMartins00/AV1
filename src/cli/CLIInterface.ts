@@ -51,8 +51,17 @@ import {
 } from "../enums/StatusRastreamento";
 
 import {
-    Equipamento
-} from "../dominio/Equipamento";
+    FabricaEquipamento
+} from "../fabricas/FabricaEquipamento";
+
+import {
+    GerenciadorConfiguracaoMestre,
+    ConfiguracaoMestre
+} from "../configuracao/GerenciadorConfiguracaoMestre";
+
+import {
+    ParametrosGlobais
+} from "../dominio/ParametrosGlobais";
 
 type InterfaceComHistorico =
     readline.Interface & {
@@ -70,6 +79,10 @@ export class CLIInterface {
     private lote: ServicoLote;
     private equipamento: ServicoEquipamento;
     private relatorio: ServicoRelatorio;
+    private gerenciadorConfig:
+        GerenciadorConfiguracaoMestre | null;
+    private configuracao: ConfiguracaoMestre | null;
+    private parametros: ParametrosGlobais;
 
     private sessaoAtual: Sessao | null;
 
@@ -84,13 +97,21 @@ export class CLIInterface {
         organizacao: ServicoOrganizacao,
         lote: ServicoLote,
         equipamento: ServicoEquipamento,
-        relatorio: ServicoRelatorio
+        relatorio: ServicoRelatorio,
+        gerenciadorConfig:
+            GerenciadorConfiguracaoMestre | null = null,
+        configuracao: ConfiguracaoMestre | null = null,
+        parametros: ParametrosGlobais =
+            ParametrosGlobais.padrao()
     ) {
         this.autenticacao = autenticacao;
         this.organizacao = organizacao;
         this.lote = lote;
         this.equipamento = equipamento;
         this.relatorio = relatorio;
+        this.gerenciadorConfig = gerenciadorConfig;
+        this.configuracao = configuracao;
+        this.parametros = parametros;
 
         this.sessaoAtual = null;
         this.terminal = null;
@@ -293,6 +314,20 @@ export class CLIInterface {
                 );
                 break;
 
+            case "usuario":
+                this.processarUsuario(
+                    acao,
+                    argumentos
+                );
+                break;
+
+            case "config":
+                this.processarConfig(
+                    acao,
+                    argumentos
+                );
+                break;
+
             default:
                 throw new Error(
                     `Comando desconhecido: ${modulo}`
@@ -364,6 +399,30 @@ export class CLIInterface {
 
     private menuAdministrador(): void {
         console.log(
+            "  usuario criar --usuario NOME --senha SENHA --papel PAPEL"
+        );
+
+        console.log(
+            "  usuario listar"
+        );
+
+        console.log(
+            "  usuario senha --atual SENHA --nova SENHA"
+        );
+
+        console.log(
+            "  config mostrar"
+        );
+
+        console.log(
+            "  config aliquota --valor 0.18"
+        );
+
+        console.log(
+            "  config depreciacao --coeficiente 0.2 --base 1000"
+        );
+
+        console.log(
             "  org criar ..."
         );
 
@@ -405,6 +464,10 @@ export class CLIInterface {
 
         console.log(
             "  equip codigo --tipo TIPO --seq NUMERO"
+        );
+
+        console.log(
+            "  equip depreciacao ID"
         );
 
         console.log(
@@ -465,6 +528,10 @@ export class CLIInterface {
 
         console.log(
             "  equip codigo --tipo TIPO --seq NUMERO"
+        );
+
+        console.log(
+            "  equip depreciacao ID"
         );
     }
 
@@ -857,18 +924,17 @@ export class CLIInterface {
                 );
 
                 const equipamento =
-                    new Equipamento(
-                        equipamentoId,
-                        codigo,
+                    FabricaEquipamento.criar({
+                        id: equipamentoId,
+                        codigoBarrasInterno: codigo,
                         tipo,
-                        argumentos.opcoes.marca,
-                        argumentos.opcoes.modelo,
-                        ano,
-                        estado,
-                        peso,
-                        loteId,
-                        1
-                    );
+                        marca: argumentos.opcoes.marca,
+                        modelo: argumentos.opcoes.modelo,
+                        anoFabricacao: ano,
+                        estadoFisico: estado,
+                        pesoQuilogramas: peso,
+                        loteId
+                    });
 
                 this.lote
                     .adicionarEquipamentoLote(
@@ -1151,9 +1217,273 @@ export class CLIInterface {
                 break;
             }
 
+            case "depreciacao": {
+                const id =
+                    this.obterPosicional(
+                        argumentos,
+                        0,
+                        "Informe o ID do equipamento."
+                    );
+
+                const resultado =
+                    this.equipamento
+                        .calcularDepreciacao(
+                            id,
+                            this.parametros
+                        );
+
+                this.sucesso(
+                    `Depreciação acumulada do equipamento ${resultado.equipamentoId}: ` +
+                    `R$ ${resultado.depreciacaoAcumulada.toFixed(2)} ` +
+                    `(coeficiente ${resultado.coeficiente}, ` +
+                    `base R$ ${resultado.valorBase.toFixed(2)}).`
+                );
+
+                break;
+            }
+
             default:
                 throw new Error(
                     `Ação de equipamento desconhecida: ${acao}`
+                );
+        }
+    }
+
+    // usuárioAV1
+
+    private processarUsuario(
+        acao: string,
+        argumentos: ArgumentosComando
+    ): void {
+        switch (acao) {
+            case "criar": {
+                this.exigirOpcoes(
+                    argumentos,
+                    [
+                        "usuario",
+                        "senha",
+                        "papel"
+                    ]
+                );
+
+                const papel =
+                    this.converterEnum(
+                        PapelUsuario,
+                        argumentos.opcoes.papel,
+                        "papel"
+                    );
+
+                const credencial =
+                    this.autenticacao.criarUsuario(
+                        argumentos.opcoes.usuario,
+                        argumentos.opcoes.senha,
+                        papel
+                    );
+
+                this.sucesso(
+                    `Usuário ${credencial.getUsuario()} criado com papel ${credencial.getPapel()}.`
+                );
+
+                break;
+            }
+
+            case "listar": {
+                const usuarios =
+                    this.autenticacao.listarUsuarios();
+
+                console.log();
+                console.log(
+                    "========== USUÁRIOS =========="
+                );
+
+                for (const item of usuarios) {
+                    console.log(
+                        `  ${item.usuario} | ${item.papel} | ` +
+                        `último acesso: ${item.ultimoAcesso.toLocaleString("pt-BR")}`
+                    );
+                }
+
+                console.log(
+                    "=============================="
+                );
+
+                break;
+            }
+
+            case "senha": {
+                this.exigirOpcoes(
+                    argumentos,
+                    [
+                        "atual",
+                        "nova"
+                    ]
+                );
+
+                const sessao =
+                    this.sessaoAtual;
+
+                if (sessao === null) {
+                    throw new Error(
+                        "Nenhum usuário autenticado."
+                    );
+                }
+
+                const alterou =
+                    this.autenticacao.alterarSenha(
+                        sessao.getUsuario(),
+                        argumentos.opcoes.atual,
+                        argumentos.opcoes.nova
+                    );
+
+                if (!alterou) {
+                    throw new Error(
+                        "Não foi possível alterar a senha. Verifique a senha atual."
+                    );
+                }
+
+                this.sucesso(
+                    "Senha atualizada com sucesso."
+                );
+
+                break;
+            }
+
+            default:
+                throw new Error(
+                    `Ação de usuário desconhecida: ${acao}`
+                );
+        }
+    }
+
+    private persistirParametros(): void {
+        if (
+            this.gerenciadorConfig === null ||
+            this.configuracao === null
+        ) {
+            throw new Error(
+                "A configuração mestre não está disponível para persistência."
+            );
+        }
+
+        this.configuracao.parametros =
+            this.parametros.toJSON();
+
+        this.gerenciadorConfig.salvar(
+            this.configuracao
+        );
+    }
+
+    private processarConfig(
+        acao: string,
+        argumentos: ArgumentosComando
+    ): void {
+        switch (acao) {
+            case "mostrar": {
+                console.log();
+                console.log(
+                    "========== PARÂMETROS GLOBAIS =========="
+                );
+                console.log(
+                    `Alíquota de impostos: ${(
+                        this.parametros.getAliquotaImpostos() *
+                        100
+                    ).toFixed(2)}%`
+                );
+                console.log(
+                    `Coeficiente de depreciação: ${this.parametros.getCoeficienteDepreciacao()}`
+                );
+                console.log(
+                    `Valor-base de depreciação: R$ ${this.parametros
+                        .getValorBaseDepreciacao()
+                        .toFixed(2)}`
+                );
+                console.log(
+                    "========================================"
+                );
+
+                break;
+            }
+
+            case "aliquota": {
+                this.exigirOpcoes(
+                    argumentos,
+                    ["valor"]
+                );
+
+                const valor =
+                    Number(
+                        argumentos.opcoes.valor
+                    );
+
+                this.validarNumero(
+                    valor,
+                    "alíquota"
+                );
+
+                this.parametros.definirAliquota(
+                    valor
+                );
+
+                this.persistirParametros();
+
+                this.sucesso(
+                    `Alíquota atualizada para ${(valor * 100).toFixed(2)}%.`
+                );
+
+                break;
+            }
+
+            case "depreciacao": {
+                this.exigirOpcoes(
+                    argumentos,
+                    ["coeficiente"]
+                );
+
+                const coeficiente =
+                    Number(
+                        argumentos.opcoes.coeficiente
+                    );
+
+                this.validarNumero(
+                    coeficiente,
+                    "coeficiente"
+                );
+
+                this.parametros
+                    .definirCoeficienteDepreciacao(
+                        coeficiente
+                    );
+
+                if (
+                    argumentos.opcoes.base
+                ) {
+                    const base =
+                        Number(
+                            argumentos.opcoes.base
+                        );
+
+                    this.validarNumero(
+                        base,
+                        "valor-base"
+                    );
+
+                    this.parametros.definirValorBase(
+                        base
+                    );
+                }
+
+                this.persistirParametros();
+
+                this.sucesso(
+                    "Parâmetros de depreciação atualizados."
+                );
+
+                break;
+            }
+
+            default:
+                throw new Error(
+                    `Ação de configuração desconhecida: ${acao}`
                 );
         }
     }
@@ -1547,7 +1877,17 @@ export class CLIInterface {
 
                         "relatorio organizacao",
                         "relatorio status",
-                        "relatorio financeiro"
+                        "relatorio financeiro",
+
+                        "usuario criar",
+                        "usuario listar",
+                        "usuario senha",
+
+                        "config mostrar",
+                        "config aliquota",
+                        "config depreciacao",
+
+                        "equip depreciacao"
                     ];
 
                     const encontrados =

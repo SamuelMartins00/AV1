@@ -15,6 +15,10 @@ import { dirname } from "path";
 import { CriptografiaArquivo } from "../persistencia/CriptografiaArquivo";
 import { Credencial } from "../autenticacao/Credencial";
 import { PapelUsuario } from "../enums/PapelUsuario";
+import {
+    ParametrosGlobais,
+    ParametrosGlobaisPersistidos
+} from "../dominio/ParametrosGlobais";
 
 interface AdministradorConfiguracao {
     usuario: string;
@@ -27,9 +31,13 @@ export interface ConfiguracaoMestre {
     versao: number;
     chaveMestra: string;
     administrador: AdministradorConfiguracao;
+    parametros: ParametrosGlobaisPersistidos;
 }
 
 export class GerenciadorConfiguracaoMestre {
+    private static readonly CHAVE_BOOTSTRAP =
+        "GREENCODE_BOOTSTRAP_V1";
+
     private caminhoArquivo: string;
     private criptografia: CriptografiaArquivo;
 
@@ -53,13 +61,28 @@ export class GerenciadorConfiguracaoMestre {
         }
 
         try {
-            const conteudo = readFileSync(
+            const bruto = readFileSync(
                 this.caminhoArquivo,
                 "utf8"
             );
 
+            const conteudo =
+                this.decifrarOuLerTexto(
+                    bruto
+                );
+
+            const lida = JSON.parse(
+                conteudo
+            ) as ConfiguracaoMestre;
+
             const configuracao: ConfiguracaoMestre =
-                JSON.parse(conteudo);
+                {
+                    ...lida,
+                    parametros:
+                        ParametrosGlobais.fromJSON(
+                            lida.parametros
+                        ).toJSON()
+                };
 
             this.validarConfiguracao(configuracao);
 
@@ -98,12 +121,21 @@ export class GerenciadorConfiguracaoMestre {
                 hashSenha: credencial.getHashSenha(),
                 salt: credencial.getSalt(),
                 papel: credencial.getPapel()
-            }
+            },
+            parametros:
+                ParametrosGlobais.padrao().toJSON()
         };
 
         this.salvarAtomicamente(configuracao);
 
         return configuracao;
+    }
+
+    public salvar(
+        configuracao: ConfiguracaoMestre
+    ): void {
+        this.validarConfiguracao(configuracao);
+        this.salvarAtomicamente(configuracao);
     }
 
     private validarConfiguracao(
@@ -161,6 +193,10 @@ export class GerenciadorConfiguracaoMestre {
                 "O administrador inicial precisa possuir o papel ADMINISTRADOR."
             );
         }
+
+        ParametrosGlobais.fromJSON(
+            configuracao.parametros
+        );
     }
 
     private salvarAtomicamente(
@@ -179,10 +215,14 @@ export class GerenciadorConfiguracaoMestre {
             `${this.caminhoArquivo}.${process.pid}.tmp`;
 
         const conteudo =
-            JSON.stringify(
-                configuracao,
-                null,
-                2
+            this.criptografia.cifrar(
+                JSON.stringify(
+                    configuracao,
+                    null,
+                    2
+                ),
+                GerenciadorConfiguracaoMestre
+                    .CHAVE_BOOTSTRAP
             );
 
         let fd: number | null = null;
@@ -228,6 +268,34 @@ export class GerenciadorConfiguracaoMestre {
 
             throw new Error(
                 "Não foi possível salvar a configuração mestre."
+            );
+        }
+    }
+
+    private decifrarOuLerTexto(
+        bruto: string
+    ): string {
+        try {
+            return this.criptografia.decifrar(
+                bruto,
+                GerenciadorConfiguracaoMestre
+                    .CHAVE_BOOTSTRAP
+            );
+        } catch {
+            const lida = JSON.parse(
+                bruto
+            ) as Partial<ConfiguracaoMestre>;
+
+            if (
+                typeof lida.chaveMestra ===
+                    "string" &&
+                lida.administrador
+            ) {
+                return bruto;
+            }
+
+            throw new Error(
+                "Não foi possível decifrar a configuração mestre."
             );
         }
     }

@@ -6,6 +6,7 @@ import { Contrato } from "../dominio/Contrato";
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
 import { ValidadorCNPJ } from "../validadores/ValidadorCNPJ";
 import { JournalTransacao } from "../auditoria/JournalTransacao";
+import { FabricaOrganizacao } from "../fabricas/FabricaOrganizacao";
 
 interface DadosContrato {
     id?: string;
@@ -85,29 +86,19 @@ export class ServicoOrganizacao {
             );
         }
 
-        const organizacaoId =
-            dados.id ??
-            randomUUID();
-
-        const contrato =
-            this.criarContrato(
-                organizacaoId,
-                dados.contrato
-            );
-
         const organizacao =
-            new Organizacao(
-                organizacaoId,
-                dados.razaoSocial,
-                cnpjLimpo,
-                dados.inscricaoEstadual,
-                dados.enderecoCompleto,
-                dados.telefone,
-                dados.email,
-                new Date(),
-                true,
-                contrato
-            );
+            FabricaOrganizacao.criar({
+                id: dados.id,
+                razaoSocial: dados.razaoSocial,
+                cnpj: cnpjLimpo,
+                inscricaoEstadual:
+                    dados.inscricaoEstadual,
+                enderecoCompleto:
+                    dados.enderecoCompleto,
+                telefone: dados.telefone,
+                email: dados.email,
+                contrato: dados.contrato
+            });
 
         const dadosDepois =
             this.organizacaoParaJSON(
@@ -230,56 +221,6 @@ export class ServicoOrganizacao {
         this.repositorio.salvarEntidade(
             this.arquivo,
             dadosDepois
-        );
-    }
-
-    private criarContrato(
-        organizacaoId: string,
-        dados: DadosContrato
-    ): Contrato {
-        const dataAssinatura =
-            dados.dataAssinatura
-                ? new Date(
-                      dados.dataAssinatura
-                  )
-                : new Date();
-
-        const dataVencimento =
-            new Date(
-                dados.dataVencimento
-            );
-
-        if (
-            isNaN(
-                dataAssinatura.getTime()
-            ) ||
-            isNaN(
-                dataVencimento.getTime()
-            )
-        ) {
-            throw new Error(
-                "Datas do contrato inválidas."
-            );
-        }
-
-        if (
-            dataVencimento <=
-            dataAssinatura
-        ) {
-            throw new Error(
-                "A data de vencimento deve ser posterior à data de assinatura."
-            );
-        }
-
-        return new Contrato(
-            dados.id ??
-                randomUUID(),
-            organizacaoId,
-            dataAssinatura,
-            dataVencimento,
-            dados.clausulas ?? [],
-            dados.valorMensal,
-            dados.renovacaoAutomatica
         );
     }
 

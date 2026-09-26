@@ -1,6 +1,6 @@
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
-
 import { StatusRastreamento } from "../enums/StatusRastreamento";
+import { ParametrosGlobais } from "../dominio/ParametrosGlobais";
 
 interface Periodo {
     inicio: Date;
@@ -28,6 +28,7 @@ interface DadosOrganizacaoRelatorio {
 
 export class ServicoRelatorio {
     private repositorio: RepositorioArquivo;
+    private parametros: ParametrosGlobais;
 
     private readonly arquivoOrganizacoes =
         "organizacoes.json.enc";
@@ -39,9 +40,12 @@ export class ServicoRelatorio {
         "equipamentos.json.enc";
 
     constructor(
-        repositorio: RepositorioArquivo
+        repositorio: RepositorioArquivo,
+        parametros: ParametrosGlobais =
+            ParametrosGlobais.padrao()
     ) {
         this.repositorio = repositorio;
+        this.parametros = parametros;
     }
 
     public gerarRelatorioPorOrganizacao(
@@ -252,6 +256,12 @@ export class ServicoRelatorio {
                   contratosNoPeriodo.length
                 : 0;
 
+        const aliquota =
+            this.parametros.getAliquotaImpostos();
+
+        const impostoEstimado =
+            valorMensalTotal * aliquota;
+
         const linhas =
             contratosNoPeriodo.map(
                 (
@@ -280,6 +290,10 @@ export class ServicoRelatorio {
                 2
             )}`,
             `Valor mensal médio por organização: R$ ${mediaValorMensal.toFixed(
+                2
+            )}`,
+            `Alíquota de impostos configurada: ${(aliquota * 100).toFixed(2)}%`,
+            `Imposto estimado sobre o contratado: R$ ${impostoEstimado.toFixed(
                 2
             )}`,
             "",

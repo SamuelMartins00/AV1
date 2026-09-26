@@ -18,10 +18,28 @@ import {
     resolve
 } from "path";
 
+import { CriptografiaArquivo } from "../persistencia/CriptografiaArquivo";
+
 const TAMANHO_MAXIMO_JOURNAL = 10 * 1024 * 1024;
 const RETENCAO_DIAS = 180;
 
+interface ConfiguracaoJournal {
+    caminhoPadrao: string;
+    criptografia: CriptografiaArquivo | null;
+    chave: string | null;
+    tamanhoMaximo: number;
+    retencaoDias: number;
+}
+
 export class JournalTransacao {
+    private static configuracao: ConfiguracaoJournal = {
+        caminhoPadrao: "./data/journal/journal.log",
+        criptografia: null,
+        chave: null,
+        tamanhoMaximo: TAMANHO_MAXIMO_JOURNAL,
+        retencaoDias: RETENCAO_DIAS
+    };
+
     private id: string;
     private timestamp: Date;
     private operacao: string;
@@ -32,6 +50,49 @@ export class JournalTransacao {
 
     private caminhoJournal: string;
 
+    public static configurar(
+        opcoes: {
+            caminho?: string;
+            criptografia?: CriptografiaArquivo;
+            chave?: string;
+            tamanhoMaximo?: number;
+            retencaoDias?: number;
+        }
+    ): void {
+        if (opcoes.caminho) {
+            JournalTransacao.configuracao.caminhoPadrao =
+                opcoes.caminho;
+        }
+
+        if (opcoes.criptografia) {
+            JournalTransacao.configuracao.criptografia =
+                opcoes.criptografia;
+        }
+
+        if (opcoes.chave) {
+            JournalTransacao.configuracao.chave =
+                opcoes.chave;
+        }
+
+        if (
+            typeof opcoes.tamanhoMaximo ===
+                "number" &&
+            opcoes.tamanhoMaximo > 0
+        ) {
+            JournalTransacao.configuracao.tamanhoMaximo =
+                opcoes.tamanhoMaximo;
+        }
+
+        if (
+            typeof opcoes.retencaoDias ===
+                "number" &&
+            opcoes.retencaoDias > 0
+        ) {
+            JournalTransacao.configuracao.retencaoDias =
+                opcoes.retencaoDias;
+        }
+    }
+
     constructor(
         id: string,
         timestamp: Date,
@@ -40,7 +101,8 @@ export class JournalTransacao {
         dadosAntes: any,
         dadosDepois: any,
         usuarioResponsavel: string,
-        caminhoJournal: string = "./data/journal/journal.log"
+        caminhoJournal: string =
+            JournalTransacao.configuracao.caminhoPadrao
     ) {
         this.id = id;
         this.timestamp = timestamp;
@@ -76,6 +138,18 @@ export class JournalTransacao {
         } catch {
             throw new Error(
                 "Não foi possível serializar a transação."
+            );
+        }
+
+        const criptografia =
+            JournalTransacao.configuracao.criptografia;
+        const chave =
+            JournalTransacao.configuracao.chave;
+
+        if (criptografia && chave) {
+            conteudo = criptografia.cifrar(
+                conteudo,
+                chave
             );
         }
 
@@ -152,7 +226,8 @@ export class JournalTransacao {
 
         if (
             tamanhoAtual <=
-            TAMANHO_MAXIMO_JOURNAL
+            JournalTransacao.configuracao
+                .tamanhoMaximo
         ) {
             return;
         }
@@ -188,7 +263,8 @@ export class JournalTransacao {
 
         const limite =
             agora -
-            RETENCAO_DIAS *
+            JournalTransacao.configuracao
+                .retencaoDias *
                 24 *
                 60 *
                 60 *

@@ -1,15 +1,22 @@
 import { Credencial } from "./Credencial";
 import { Sessao } from "./Sessao";
+import { PapelUsuario } from "../enums/PapelUsuario";
+import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
 
 export class ServicoAutenticacao {
     private credenciais: Credencial[];
     private sessoesAtivas: Sessao[];
+    private repositorio: RepositorioArquivo | null;
+    private readonly arquivoCredenciais =
+        "credenciais.json.enc";
 
     constructor(
-        credenciais: Credencial[] = []
+        credenciais: Credencial[] = [],
+        repositorio: RepositorioArquivo | null = null
     ) {
         this.credenciais = credenciais;
         this.sessoesAtivas = [];
+        this.repositorio = repositorio;
     }
 
     login(
@@ -127,6 +134,8 @@ export class ServicoAutenticacao {
         this.credenciais[indice] =
             novaCredencial;
 
+        this.persistirCredencial(novaCredencial);
+
         return true;
     }
 
@@ -147,5 +156,62 @@ export class ServicoAutenticacao {
         }
 
         this.credenciais.push(credencial);
+        this.persistirCredencial(credencial);
+    }
+
+    criarUsuario(
+        usuario: string,
+        senha: string,
+        papel: PapelUsuario
+    ): Credencial {
+        if (!usuario.trim()) {
+            throw new Error(
+                "O nome de usuário não pode ser vazio."
+            );
+        }
+
+        if (!senha) {
+            throw new Error(
+                "A senha não pode ser vazia."
+            );
+        }
+
+        const credencial = new Credencial(
+            usuario.trim(),
+            senha,
+            papel
+        );
+
+        this.adicionarCredencial(credencial);
+
+        return credencial;
+    }
+
+    listarUsuarios(): Array<{
+        usuario: string;
+        papel: PapelUsuario;
+        ultimoAcesso: Date;
+    }> {
+        return this.credenciais.map(
+            (credencial) => ({
+                usuario: credencial.getUsuario(),
+                papel: credencial.getPapel(),
+                ultimoAcesso:
+                    credencial.getUltimoAcesso()
+            })
+        );
+    }
+
+    private persistirCredencial(
+        credencial: Credencial
+    ): void {
+        if (this.repositorio === null) {
+            return;
+        }
+
+        this.repositorio.salvarEntidade(
+            this.arquivoCredenciais,
+            credencial.toJSON()
+        );
     }
 }

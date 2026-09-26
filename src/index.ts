@@ -56,6 +56,10 @@ import {
     CLIInterface
 } from "./cli/CLIInterface";
 
+import {
+    ParametrosGlobais
+} from "./dominio/ParametrosGlobais";
+
 async function main(): Promise<void> {
     console.log(
         "Inicializando GREENCODE..."
@@ -66,7 +70,7 @@ async function main(): Promise<void> {
 
     const gerenciadorConfig =
         new GerenciadorConfiguracaoMestre(
-            "./data/configuracao-mestre.json",
+            "./data/configuracao-mestre.json.enc",
             criptografia
         );
 
@@ -87,6 +91,17 @@ async function main(): Promise<void> {
                 gerenciadorConfig
             );
     }
+
+    const parametros =
+        ParametrosGlobais.fromJSON(
+            configuracao.parametros
+        );
+
+    JournalTransacao.configurar({
+        caminho: "./data/journal/journal.log",
+        criptografia,
+        chave: configuracao.chaveMestra
+    });
 
     const repositorio =
         new RepositorioArquivo(
@@ -176,7 +191,8 @@ async function main(): Promise<void> {
 
     const autenticacao =
         new ServicoAutenticacao(
-            credenciais
+            credenciais,
+            repositorio
         );
 
     const journal =
@@ -218,7 +234,8 @@ async function main(): Promise<void> {
 
     const servicoRelatorio =
         new ServicoRelatorio(
-            repositorio
+            repositorio,
+            parametros
         );
 
     const cli =
@@ -227,7 +244,10 @@ async function main(): Promise<void> {
             servicoOrganizacao,
             servicoLote,
             servicoEquipamento,
-            servicoRelatorio
+            servicoRelatorio,
+            gerenciadorConfig,
+            configuracao,
+            parametros
         );
 
     console.log(

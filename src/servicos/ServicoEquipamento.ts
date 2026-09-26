@@ -9,6 +9,9 @@ import { EstadoFisico } from "../enums/EstadoFisico";
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
 import { JournalTransacao } from "../auditoria/JournalTransacao";
 
+import { FabricaEquipamento } from "../fabricas/FabricaEquipamento";
+import { ParametrosGlobais } from "../dominio/ParametrosGlobais";
+
 export interface HistoricoCompleto {
     equipamento: Equipamento;
     movimentacoes: Movimentacao[];
@@ -308,19 +311,50 @@ export class ServicoEquipamento {
                 )
                 : [];
 
-        return new Equipamento(
-            dados.id,
-            dados.codigoBarrasInterno,
-            dados.tipo,
-            dados.marca,
-            dados.modelo,
-            dados.anoFabricacao,
-            dados.estadoFisico,
-            dados.pesoQuilogramas,
-            dados.loteId,
-            dados.posicaoNoLote,
-            dados.statusRastreamento,
-            movimentacoes
-        );
+        return FabricaEquipamento.criar({
+            id: dados.id,
+            codigoBarrasInterno:
+                dados.codigoBarrasInterno,
+            tipo: dados.tipo,
+            marca: dados.marca,
+            modelo: dados.modelo,
+            anoFabricacao: dados.anoFabricacao,
+            estadoFisico: dados.estadoFisico,
+            pesoQuilogramas:
+                dados.pesoQuilogramas,
+            loteId: dados.loteId,
+            posicaoNoLote: dados.posicaoNoLote,
+            statusRastreamento:
+                dados.statusRastreamento,
+            historicoMovimentacao: movimentacoes
+        });
+    }
+
+    public calcularDepreciacao(
+        id: string,
+        parametros: ParametrosGlobais
+    ): {
+        equipamentoId: string;
+        depreciacaoAcumulada: number;
+        coeficiente: number;
+        valorBase: number;
+    } {
+        const equipamento =
+            this.buscarEquipamento(id);
+
+        const depreciacaoAcumulada =
+            equipamento.calcularDepreciacao(
+                parametros.getCoeficienteDepreciacao(),
+                parametros.getValorBaseDepreciacao()
+            );
+
+        return {
+            equipamentoId: equipamento.getId(),
+            depreciacaoAcumulada,
+            coeficiente:
+                parametros.getCoeficienteDepreciacao(),
+            valorBase:
+                parametros.getValorBaseDepreciacao()
+        };
     }
 }
