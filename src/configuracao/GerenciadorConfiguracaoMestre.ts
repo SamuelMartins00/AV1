@@ -35,7 +35,11 @@ export interface ConfiguracaoMestre {
 }
 
 export class GerenciadorConfiguracaoMestre {
+    // A chave que protege o arquivo mestre pode ser sobrescrita pela
+    // variável de ambiente GREENCODE_BOOTSTRAP_KEY. Sem ela, usa-se o
+    // valor padrão (compatível com instalações existentes).
     private static readonly CHAVE_BOOTSTRAP =
+        process.env.GREENCODE_BOOTSTRAP_KEY ||
         "GREENCODE_BOOTSTRAP_V1";
 
     private caminhoArquivo: string;

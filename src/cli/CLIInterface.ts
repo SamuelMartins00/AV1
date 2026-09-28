@@ -155,7 +155,7 @@ export class CLIInterface {
                     token
                 )
             ) {
-                this.erro(
+                this.aviso(
                     "Sua sessão expirou por inatividade."
                 );
 
@@ -2301,6 +2301,14 @@ export class CLIInterface {
     ): void {
         console.error(
             `[ERRO] ${mensagem}`
+        );
+    }
+
+    private aviso(
+        mensagem: string
+    ): void {
+        console.warn(
+            `[AVISO] ${mensagem}`
         );
     }
 

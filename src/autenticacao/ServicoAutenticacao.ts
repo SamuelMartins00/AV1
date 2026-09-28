@@ -1,4 +1,6 @@
+import { randomUUID } from "crypto";
 import { Credencial } from "./Credencial";
+import { JournalTransacao } from "../auditoria/JournalTransacao";
 import { Sessao } from "./Sessao";
 import { PapelUsuario } from "../enums/PapelUsuario";
 import { RepositorioArquivo } from "../persistencia/RepositorioArquivo";
@@ -130,6 +132,17 @@ export class ServicoAutenticacao {
             senhaNova,
             credencialAtual.getPapel()
         );
+
+        // Auditoria antes de aplicar (nunca registra hashes ou senhas).
+        new JournalTransacao(
+            randomUUID(),
+            new Date(),
+            "ALTERAR_SENHA",
+            "Credencial",
+            { usuario },
+            { usuario, senhaAlterada: true },
+            usuario
+        ).registrar();
 
         this.credenciais[indice] =
             novaCredencial;
