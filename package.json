@@ -19,7 +19,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "check": "tsc --noEmit",
-    "test": "tsx test/test10.ts"
+    "test": "tsx tests/executar.ts"
   },
   "keywords": [
     "greencode",
@@ -29,7 +29,7 @@
     "cli"
   ],
   "devDependencies": {
-    "@types/node": "^22.20.3",
+    "@types/node": "^22.20.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
