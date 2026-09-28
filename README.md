@@ -4,8 +4,9 @@
 O **greencode** é uma CLI em Node.js + TypeScript para o fluxo de logística reversa de resíduos eletrônicos. A proposta da AV1 combina domínio orientado a objetos, validações de negócio, autenticação, persistência local, criptografia e auditoria.
 
 ## 2. Requisitos
-- Node.js
+- Node.js 20 ou superior
 - npm
+- Windows 10+, Ubuntu 24.04+ ou derivadas
 
 ## 3. Instalação
 ```bash
@@ -23,9 +24,10 @@ npm run build
 node dist/index.js
 ```
 
-## 6. Verificação de TypeScript
+## 6. Verificação de TypeScript e testes
 ```bash
 npm run check
+npm test
 ```
 
 ## 7. Fluxo recomendado para demonstração
@@ -46,6 +48,16 @@ npm run check
 ajuda
 logout
 sair
+
+usuario criar ...
+usuario listar
+usuario senha
+
+config mostrar
+config aliquota ...
+config depreciacao ...
+
+equip depreciacao ...
 
 org criar ...
 org buscar ID
@@ -68,6 +80,7 @@ relatorio financeiro --inicio DATA --fim DATA
 
 ## 9. Estrutura de persistência
 Os dados de execução ficam em `data/`. Entre os arquivos utilizados estão:
+- `configuracao-mestre.json.enc`
 - `credenciais.json.enc`
 - `organizacoes.json.enc`
 - `lotes.json.enc`
@@ -85,17 +98,18 @@ Não versionar credenciais, chaves, tokens ou dados de execução que não sejam
 - Journal com operação, entidade, dados antes/depois e responsável.
 
 ## 11. Testes
-Consulte `Relatorio_de_Testes_GREENCODE.md` para a matriz de casos e `Matriz_de_Requisitos_GREENCODE.md` para a relação entre requisitos e evidências.
+Execute `npm test` (jornada completa, cenários de falha e testes de segurança). Consulte `docs/Relatorio_de_Testes.md`, `docs/Matriz_de_Requisitos.md` e `docs/Arquitetura_de_Seguranca.md`.
 
 ## 12. Observações da entrega
-O relatório técnico registra também os pontos que ainda merecem demonstração ou complementação, especialmente teste manual de TAB/histórico, demonstração da expiração de 30 minutos e a regra de depreciação.
+Ver as limitações conhecidas em `docs/Arquitetura_de_Seguranca.md` (seção 6). Testes manuais de TAB, histórico e da expiração cronometrada de 30 minutos devem ser demonstrados na apresentação.
 
 ## 13. Estrutura das Pastas 
 ```
 AV1
 ├── docs
-│   ├── Matriz_de_Requisitos_GREENCODE.md
-│   └── Relatorio_de_Testes_GREENCODE.md
+│   ├── Arquitetura_de_Seguranca.md
+│   ├── Matriz_de_Requisitos.md
+│   └── Relatorio_de_Testes.md
 ├── src
 │   ├── auditoria
 │   │   └── JournalTransacao.ts
@@ -109,12 +123,18 @@ AV1
 │   ├── configuracao
 │   │   ├── GerenciadorConfiguracaoMestre.ts
 │   │   └── ProvisionamentoInicial.ts
+│   ├── fabricas
+│   │   ├── FabricaContrato.ts
+│   │   ├── FabricaEquipamento.ts
+│   │   ├── FabricaLote.ts
+│   │   └── FabricaOrganizacao.ts
 │   ├── dominio
 │   │   ├── Contrato.ts
 │   │   ├── Equipamento.ts
 │   │   ├── Lote.ts
 │   │   ├── Movimentacao.ts
-│   │   └── Organizacao.ts
+│   │   ├── Organizacao.ts
+│   │   └── ParametrosGlobais.ts
 │   ├── enums
 │   │   ├── EstadoFisico.ts
 │   │   ├── PapelUsuario.ts
@@ -135,16 +155,10 @@ AV1
 │   │   └── ValidadorDataEntrada.ts
 │   └── index.ts
 ├── tests
-│   ├── test1.ts
-│   ├── test10.ts
-│   ├── test2.ts
-│   ├── test3.ts
-│   ├── test4.ts
-│   ├── test5.ts
-│   ├── test6.ts
-│   ├── test7.ts
-│   ├── test8.ts
-│   └── test9.ts
+│   ├── cenarios-falha.ts
+│   ├── executar.ts
+│   ├── jornada.ts
+│   └── seguranca.ts
 ├── .gitignore
 ├── README.md
 ├── package-lock.json
